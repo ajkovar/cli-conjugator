@@ -2,7 +2,6 @@
 
 import Control.Monad
 import Data.List (find)
-import qualified Data.Text as T
 import Database.SQLite.Simple
 
 data NaturalWord = NaturalWord
@@ -30,10 +29,7 @@ persons = [fps, sps, tps, fpp, spp, tpp]
 
 tenses :: [String]
 tenses = ["Presente", "Pretérito", "Imperfecto", "Imperfecto", "Futuro"]
-
-l :: [String]
-l = ["corro", "corrí", "corría", "correría", "correré"]
-
+ 
 padR :: Int -> String -> String
 padR n s
   | length s < n = s ++ replicate (n - length s) ' '
