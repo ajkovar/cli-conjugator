@@ -43,7 +43,7 @@ formatLine :: [String] -> String
 formatLine line = foldl1 (++) (map (padR 15) line)
 
 filterTense :: [NaturalWord] -> Tense -> [NaturalWord]
-filterTense nws t = filter (\nw -> tense nw == t) nws
+filterTense nws t = filter ((== t) . tense) nws
 
 tensesForPerson :: (NaturalWord -> String) -> [NaturalWord] -> String
 tensesForPerson personFn nws = formatLine $ map personFn $ concat $ map (filterTense nws) tenses
