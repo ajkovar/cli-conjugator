@@ -22,13 +22,16 @@ data NaturalWord = NaturalWord
 instance FromRow NaturalWord where
   fromRow = NaturalWord <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
 
-moods :: [String]
+type Mood = String
+type Tense = String
+
+moods :: [Mood]
 moods = ["Indicativo", "Subjuntivo", "Imperativo Afirmativo", "Imperativo Negativo"]
 
 persons :: [NaturalWord -> String]
 persons = [fps, sps, tps, fpp, spp, tpp]
 
-tenses :: [String]
+tenses :: [Tense]
 tenses = ["Presente", "Pretérito", "Imperfecto", "Imperfecto", "Futuro"]
  
 padR :: Int -> String -> String
@@ -39,19 +42,19 @@ padR n s
 formatLine :: [String] -> String
 formatLine line = foldl1 (++) (map (padR 15) line)
 
-filterTense :: [NaturalWord] -> String -> [NaturalWord]
+filterTense :: [NaturalWord] -> Tense -> [NaturalWord]
 filterTense nws t = filter (\nw -> tense nw == t) nws
 
 tensesForPerson :: (NaturalWord -> String) -> [NaturalWord] -> String
 tensesForPerson personFn nws = formatLine $ map personFn $ concat $ map (filterTense nws) tenses
 
-printMood :: [NaturalWord] -> String -> IO ()
+printMood :: [NaturalWord] -> Mood -> IO ()
 printMood nws m = do
   putStrLn $ "\n" ++ m ++ "\n"
-  putStrLn $ formatLine $ filter (\t -> length (filterTense indicatives t) > 0) tenses
-  mapM_ (\personFn -> putStrLn $ tensesForPerson personFn indicatives) persons
+  putStrLn $ formatLine $ filter (\t -> length (filterTense currentMood t) > 0) tenses
+  mapM_ (\personFn -> putStrLn $ tensesForPerson personFn currentMood) persons
   where
-    indicatives = filter (\nw -> mood nw == m) nws
+    currentMood = filter (\nw -> mood nw == m) nws
 
 main :: IO ()
 main = do
