@@ -2,7 +2,8 @@
 
 import Control.Monad
 import Data.List (find)
-import Database.SQLite.Simple
+import Database.SQLite.Simple 
+import System.Environment (getArgs)
 
 data NaturalWord = NaturalWord
   { infinitive :: String,
@@ -54,9 +55,10 @@ printMood nws m = do
 
 main :: IO ()
 main = do
+  verb:args <- getArgs 
   conn <- open "conjugation.db"
 
-  rows <- query_ conn "SELECT * from verbs where infinitive=\"correr\"" :: IO [NaturalWord]
+  rows <- query conn "SELECT * from verbs where infinitive=?" (Only (verb :: String)) :: IO [NaturalWord]
   mapM_ (printMood rows) moods
 
   close conn
