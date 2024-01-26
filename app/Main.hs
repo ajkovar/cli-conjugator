@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Data.List (find, transpose)
+import Data.List (transpose)
 import Database.SQLite.Simple
 import System.Environment (getArgs)
 
@@ -60,15 +60,14 @@ printMood nws m = do
     annotatedValues = zip personLabels values
     filtered = filter ((>0) . length . snd) annotatedValues
     tenses' = "":tenses
-    mergeTuple :: (String, [String]) -> [String]
-    mergeTuple (label, values) = [label] ++ values
+    mergeTuple (label, values') = label:values'
     combined = tenses':(map mergeTuple filtered)
     lengths = map ((foldr1 max) . (map length)) $ (transpose combined)
     printRow row = putStrLn $ formatLine (zip lengths row) 
 
 main :: IO ()
 main = do
-  verb : args <- getArgs
+  verb : _ <- getArgs
   conn <- open "conjugation.db"
 
   rows <- query conn "SELECT * from verbs where infinitive=?" (Only (verb :: String)) :: IO [NaturalWord]
