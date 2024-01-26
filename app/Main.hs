@@ -55,10 +55,10 @@ printMood nws m = do
     moodMatches = filter ((== m) . mood) nws
     tenseValues = concat $ map (filterTense moodMatches) tenses
     personLabels = map fst persons
-    tensesForPerson = flip map tenseValues
-    values = map (tensesForPerson . snd) persons
+    mapTenses = flip map tenseValues
+    values = map (mapTenses . snd) persons
     annotatedValues = zip personLabels values
-    filtered = filter ((>0) . length . snd) annotatedValues
+    filtered = filter ((any ((/=0) . length)) . snd) annotatedValues
     tenses' = "":tenses
     mergeTuple (label, values') = label:values'
     combined = tenses':(map mergeTuple filtered)
