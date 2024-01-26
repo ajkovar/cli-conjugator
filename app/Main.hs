@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Control.Monad
-import Data.List (find)
+import Data.List (find, transpose)
 import Database.SQLite.Simple
 import System.Environment (getArgs)
 
@@ -41,9 +40,9 @@ padR :: Int -> String -> String
 padR n s
   | length s < n = s ++ replicate (n - length s) ' '
   | otherwise = s
-
-formatLine :: [String] -> String
-formatLine line = foldl1 (++) (map (padR 16) line)
+ 
+formatLine :: [(Int, String)] -> String
+formatLine ws = foldl1 (++) $ map (\(length', line) -> padR (max (length'+1) 12) line) ws
 
 filterTense :: [NaturalWord] -> Tense -> [NaturalWord]
 filterTense nws t = filter ((== t) . tense) nws
@@ -51,14 +50,21 @@ filterTense nws t = filter ((== t) . tense) nws
 printMood :: [NaturalWord] -> Mood -> IO ()
 printMood nws m = do
   putStrLn $ "\n" ++ m ++ "\n"
-  putStrLn $ formatLine $ filter (\t -> length (filterTense moodMatches t) > 0) tenses
-  mapM_ printPerson persons
+  mapM_ printRow combined
   where
     moodMatches = filter ((== m) . mood) nws
     tenseValues = concat $ map (filterTense moodMatches) tenses
     personLabels = map fst persons
-    tensesForPerson personFn = map personFn tenseValues
-    printPerson (label, personFn) = putStrLn $ formatLine $ label:tensesForPerson personFn
+    tensesForPerson = flip map tenseValues
+    values = map (tensesForPerson . snd) persons
+    annotatedValues = zip personLabels values
+    filtered = filter ((>0) . length . snd) annotatedValues
+    tenses' = "":tenses
+    mergeTuple :: (String, [String]) -> [String]
+    mergeTuple (label, values) = [label] ++ values
+    combined = tenses':(map mergeTuple filtered)
+    lengths = map ((foldr1 max) . (map length)) $ (transpose combined)
+    printRow row = putStrLn $ formatLine (zip lengths row) 
 
 main :: IO ()
 main = do
