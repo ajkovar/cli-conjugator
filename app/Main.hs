@@ -3,6 +3,7 @@
 import Data.List (transpose)
 import Database.SQLite.Simple
 import System.Environment (getArgs)
+import Data.Maybe (listToMaybe, fromMaybe, isJust)
 
 type Mood = String
 
@@ -27,6 +28,8 @@ data NaturalWord = NaturalWord
 instance FromRow NaturalWord where
   fromRow = NaturalWord <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
 
+data Grid = Grid Int Int deriving (Show)
+
 moods :: [Mood]
 moods = ["Indicativo", "Subjuntivo", "Imperativo Afirmativo", "Imperativo Negativo"]
 
@@ -44,25 +47,50 @@ padR n s
 formatLine :: [(Int, String)] -> String
 formatLine ws = foldl1 (++) $ map (\(length', line) -> padR (max (length'+1) 12) line) ws
 
-filterTense :: [NaturalWord] -> Tense -> [NaturalWord]
-filterTense nws t = filter ((== t) . tense) nws
+filterTense :: [NaturalWord] -> Tense -> Maybe NaturalWord
+filterTense nws t = listToMaybe $ filter ((== t) . tense) nws
+ 
+applyProp :: (a -> String) -> Maybe a -> Maybe String
+applyProp f m = if x == "" then Nothing else Just x 
+  where x = fromMaybe "" (f <$> m)
+
+filterEmptyRow :: [(String, [[String]])] -> [(String, [[String]])]
+filterEmptyRow = filter ((all (all ((/=0) . length))) . snd)
+
+filterAllBlank :: [(String, [Maybe String])] -> [(String, [Maybe String])]
+filterAllBlank = filter ((any isJust) . snd) 
+
+mergeTuple :: (a, [Maybe a]) -> [Maybe a]
+mergeTuple (label, values') = Just label:values'
 
 printMood :: [NaturalWord] -> Mood -> IO ()
 printMood nws m = do
   putStrLn $ "\n" ++ m ++ "\n"
-  mapM_ printRow combined
+  mapM_ printRow filteredByColumn
   where
     moodMatches = filter ((== m) . mood) nws
-    tenseValues = concat $ map (filterTense moodMatches) tenses
+
+    tenseValues :: [Maybe NaturalWord]
+    tenseValues = map (filterTense moodMatches) tenses
+
+    personLabels :: [String]
     personLabels = map fst persons
+
     mapTenses = flip map tenseValues
-    values = map (mapTenses . snd) persons
-    annotatedValues = zip personLabels values
-    filtered = filter ((any ((/=0) . length)) . snd) annotatedValues
-    tenses' = "":tenses
-    mergeTuple (label, values') = label:values'
-    combined = tenses':(map mergeTuple filtered)
-    lengths = map ((foldr1 max) . (map length)) $ (transpose combined)
+
+    values :: [[Maybe String]]
+    values = map (mapTenses . applyProp . snd) persons
+
+    filteredByRow :: [(String, [Maybe String])]
+    filteredByRow = filterAllBlank $ zip personLabels values
+  
+    combined :: [[Maybe String]]
+    combined = (map mergeTuple filteredByRow)
+ 
+    filteredByColumn :: [[String]]
+    filteredByColumn = transpose $ map (map (fromMaybe "")) $ map mergeTuple $ filterAllBlank $ zip ("":tenses) $ transpose combined
+
+    lengths = map ((foldr1 max) . (map length)) $ (transpose filteredByColumn)
     printRow row = putStrLn $ formatLine (zip lengths row) 
 
 main :: IO ()
