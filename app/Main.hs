@@ -53,10 +53,7 @@ filterTense nws t = listToMaybe $ filter ((== t) . tense) nws
 applyProp :: (a -> String) -> Maybe a -> Maybe String
 applyProp f m = if x == "" then Nothing else Just x 
   where x = fromMaybe "" (f <$> m)
-
-filterEmptyRow :: [(String, [[String]])] -> [(String, [[String]])]
-filterEmptyRow = filter ((all (all ((/=0) . length))) . snd)
-
+ 
 filterAllBlank :: [(String, [Maybe String])] -> [(String, [Maybe String])]
 filterAllBlank = filter ((any isJust) . snd) 
 
@@ -76,21 +73,24 @@ printMood nws m = do
     personLabels :: [String]
     personLabels = map fst persons
 
-    mapTenses = flip map tenseValues
+    tensesForPerson :: (Maybe NaturalWord -> Maybe String) -> [Maybe String]
+    tensesForPerson = flip map tenseValues
 
     values :: [[Maybe String]]
-    values = map (mapTenses . applyProp . snd) persons
+    values = map (tensesForPerson . applyProp . snd) persons
 
     filteredByRow :: [(String, [Maybe String])]
     filteredByRow = filterAllBlank $ zip personLabels values
   
-    combined :: [[Maybe String]]
-    combined = (map mergeTuple filteredByRow)
+    withPersonLabel :: [[Maybe String]]
+    withPersonLabel = (map mergeTuple filteredByRow)
  
     filteredByColumn :: [[String]]
-    filteredByColumn = transpose $ map (map (fromMaybe "")) $ map mergeTuple $ filterAllBlank $ zip ("":tenses) $ transpose combined
+    filteredByColumn = transpose $ map ((map (fromMaybe "")) . mergeTuple) $ filterAllBlank $ zip ("":tenses) $ transpose withPersonLabel
 
+    lengths :: [Int]
     lengths = map ((foldr1 max) . (map length)) $ (transpose filteredByColumn)
+
     printRow row = putStrLn $ formatLine (zip lengths row) 
 
 main :: IO ()
