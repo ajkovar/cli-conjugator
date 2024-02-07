@@ -48,7 +48,7 @@ data Table = Table
   deriving (Show)
  
 filterBlankRows :: Table -> Table
-filterBlankRows g = g { cells =(map snd filtered), rowHeader = (map fst filtered) }
+filterBlankRows g = g { cells = map snd filtered, rowHeader = map fst filtered }
   where filtered = filterAllBlank $ zip (rowHeader g) (cells g)
 
 transposeTable :: Table -> Table
@@ -83,12 +83,9 @@ printMood nws m = do
 
     tenseValues :: [Maybe NaturalWord]
     tenseValues = map (filterTense moodMatches) tenses
-
-    tensesForPerson :: (Maybe NaturalWord -> Maybe String) -> [Maybe String]
-    tensesForPerson = flip map tenseValues
  
     grid = Table 
-      { cells = map (tensesForPerson . applyProp . snd) persons,
+      { cells = map ((flip map tenseValues) . applyProp . snd) persons,
         columnHeader = tenses,
         rowHeader = map fst persons
       }
