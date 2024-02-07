@@ -50,11 +50,11 @@ filterBlankRows :: Table -> Table
 filterBlankRows g = g { cells =(map snd filtered), rowHeader = (map fst filtered) }
   where filtered = filterAllBlank $ zip (rowHeader g) (cells g)
 
-transposeGrid :: Table -> Table
-transposeGrid g = Table (transpose (cells g)) (columnHeader g) (rowHeader g)
+transposeTable :: Table -> Table
+transposeTable g = Table (transpose (cells g)) (columnHeader g) (rowHeader g)
 
 filterBlankColumns :: Table -> Table
-filterBlankColumns = transposeGrid . filterBlankRows . transposeGrid
+filterBlankColumns = transposeTable . filterBlankRows . transposeTable
 
 toArray :: Table -> [[String]]
 toArray g = getZipList $ 
