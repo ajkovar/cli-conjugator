@@ -4,6 +4,7 @@ import Data.List (transpose)
 import Database.SQLite.Simple
 import System.Environment (getArgs)
 import Data.Maybe (listToMaybe, fromMaybe, isJust)
+import Control.Applicative
 
 type Mood = String
 
@@ -28,8 +29,6 @@ data NaturalWord = NaturalWord
 instance FromRow NaturalWord where
   fromRow = NaturalWord <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
 
-data Grid = Grid Int Int deriving (Show)
-
 moods :: [Mood]
 moods = ["Indicativo", "Subjuntivo", "Imperativo Afirmativo", "Imperativo Negativo"]
 
@@ -38,6 +37,30 @@ persons = [("Yo", fps), ("Tú", sps), ("él/ella/Ud.", tps), ("nosotros", fpp), 
 
 tenses :: [Tense]
 tenses = ["Presente", "Pretérito", "Imperfecto", "Imperfecto", "Futuro"]
+
+data Table = Table 
+  {
+    cells :: [[Maybe String]],
+    rowHeader :: [String],
+    columnHeader :: [String]
+  }
+  deriving (Show)
+ 
+filterBlankRows :: Table -> Table
+filterBlankRows g = g { cells =(map snd filtered), rowHeader = (map fst filtered) }
+  where filtered = filterAllBlank $ zip (rowHeader g) (cells g)
+
+transposeGrid :: Table -> Table
+transposeGrid g = Table (transpose (cells g)) (columnHeader g) (rowHeader g)
+
+filterBlankColumns :: Table -> Table
+filterBlankColumns = transposeGrid . filterBlankRows . transposeGrid
+
+toArray :: Table -> [[String]]
+toArray g = getZipList $ 
+  (:)
+  <$> ZipList ("":(rowHeader g)) 
+  <*> ZipList ((columnHeader g):(map (map (fromMaybe "")) (cells g)))
 
 padR :: Int -> String -> String
 padR n s
@@ -56,42 +79,34 @@ applyProp f m = if x == "" then Nothing else Just x
  
 filterAllBlank :: [(String, [Maybe String])] -> [(String, [Maybe String])]
 filterAllBlank = filter ((any isJust) . snd) 
-
-mergeTuple :: (a, [Maybe a]) -> [Maybe a]
-mergeTuple (label, values') = Just label:values'
-
+ 
 printMood :: [NaturalWord] -> Mood -> IO ()
 printMood nws m = do
   putStrLn $ "\n" ++ m ++ "\n"
-  mapM_ printRow filteredByColumn
+  mapM_ printRow array
   where
+    moodMatches :: [NaturalWord]
     moodMatches = filter ((== m) . mood) nws
 
     tenseValues :: [Maybe NaturalWord]
     tenseValues = map (filterTense moodMatches) tenses
 
-    personLabels :: [String]
-    personLabels = map fst persons
-
     tensesForPerson :: (Maybe NaturalWord -> Maybe String) -> [Maybe String]
     tensesForPerson = flip map tenseValues
-
-    values :: [[Maybe String]]
-    values = map (tensesForPerson . applyProp . snd) persons
-
-    filteredByRow :: [(String, [Maybe String])]
-    filteredByRow = filterAllBlank $ zip personLabels values
-  
-    withPersonLabel :: [[Maybe String]]
-    withPersonLabel = (map mergeTuple filteredByRow)
  
-    filteredByColumn :: [[String]]
-    filteredByColumn = transpose $ map ((map (fromMaybe "")) . mergeTuple) $ filterAllBlank $ zip ("":tenses) $ transpose withPersonLabel
+    grid = Table 
+      { cells = map (tensesForPerson . applyProp . snd) persons,
+        columnHeader = tenses,
+        rowHeader = map fst persons
+      }
 
-    lengths :: [Int]
-    lengths = map ((foldr1 max) . (map length)) $ (transpose filteredByColumn)
+    array :: [[String]]
+    array = toArray $ filterBlankRows $ filterBlankColumns grid 
 
-    printRow row = putStrLn $ formatLine (zip lengths row) 
+    columnLengths :: [Int]
+    columnLengths = map ((foldr1 max) . (map length)) (transpose array)
+
+    printRow row = putStrLn $ formatLine (zip columnLengths row) 
 
 main :: IO ()
 main = do
