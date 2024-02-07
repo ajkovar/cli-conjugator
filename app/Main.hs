@@ -5,6 +5,7 @@ import Database.SQLite.Simple
 import System.Environment (getArgs)
 import Data.Maybe (listToMaybe, fromMaybe, isJust)
 import Control.Applicative
+import Text.Layout.Table (gridString, left, fixedUntil, column, def)
 
 type Mood = String
 
@@ -61,15 +62,7 @@ toArray g = getZipList $
   (:)
   <$> ZipList ("":(rowHeader g)) 
   <*> ZipList ((columnHeader g):(map (map (fromMaybe "")) (cells g)))
-
-padR :: Int -> String -> String
-padR n s
-  | length s < n = s ++ replicate (n - length s) ' '
-  | otherwise = s
  
-formatLine :: [(Int, String)] -> String
-formatLine ws = foldl1 (++) $ map (\(length', line) -> padR (max (length'+1) 12) line) ws
-
 filterTense :: [NaturalWord] -> Tense -> Maybe NaturalWord
 filterTense nws t = listToMaybe $ filter ((== t) . tense) nws
  
@@ -83,7 +76,7 @@ filterAllBlank = filter ((any isJust) . snd)
 printMood :: [NaturalWord] -> Mood -> IO ()
 printMood nws m = do
   putStrLn $ "\n" ++ m ++ "\n"
-  mapM_ printRow array
+  putStrLn $ gridString (take 6 (repeat (column (fixedUntil 12) left def def))) array
   where
     moodMatches :: [NaturalWord]
     moodMatches = filter ((== m) . mood) nws
@@ -102,12 +95,7 @@ printMood nws m = do
 
     array :: [[String]]
     array = toArray $ filterBlankRows $ filterBlankColumns grid 
-
-    columnLengths :: [Int]
-    columnLengths = map ((foldr1 max) . (map length)) (transpose array)
-
-    printRow row = putStrLn $ formatLine (zip columnLengths row) 
-
+ 
 main :: IO ()
 main = do
   verb : _ <- getArgs

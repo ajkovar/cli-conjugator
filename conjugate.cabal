@@ -68,9 +68,10 @@ executable conjugate
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base >=4.9.0.0 && <4.21.0.0,
+    build-depends:    base >= 4.17.2 && < 4.18,
                       sqlite-simple >= 0.4.18 && < 0.5,
                       text >= 2.1 && < 2.2,
+                      table-layout >= 1.0.0 && < 1.1,
 
 
     -- Directories containing source files.
