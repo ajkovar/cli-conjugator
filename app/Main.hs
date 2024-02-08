@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Data.List (transpose)
+import Data.List (transpose, isPrefixOf, inits, maximumBy)
+import Data.Ord (comparing)
 import Database.SQLite.Simple
 import System.Environment (getArgs)
 import Data.Maybe (listToMaybe, fromMaybe, isJust)
@@ -72,11 +73,27 @@ applyProp f m = if x == "" then Nothing else Just x
  
 filterAllBlank :: [(String, [Maybe String])] -> [(String, [Maybe String])]
 filterAllBlank = filter ((any isJust) . snd) 
+
+lcp :: String -> String -> String
+lcp a b = maximumBy (comparing length) $ filter (`isPrefixOf` a) (inits b)
  
-printMood :: [NaturalWord] -> Mood -> IO ()
-printMood nws m = do
-  putStrLn $ "\n" ++ m ++ "\n"
+printMoods :: [NaturalWord] -> [Mood] -> IO ()
+printMoods nws ms = do
+  -- putStrLn $ "\n" ++ m ++ "\n"
   putStrLn $ gridString (take 6 (repeat (column (fixedUntil 12) left def def))) array
+  where 
+    combined :: Table
+    combined = foldl1 (<>) (map (printMood nws) ms)
+
+    array :: [[String]]
+    array = toArray $ filterBlankRows $ filterBlankColumns combined 
+
+printMood :: [NaturalWord] -> Mood -> Table
+printMood nws m = Table 
+  { cells = map ((flip map tenseValues) . applyProp . snd) persons,
+    columnHeader = tenses,
+    rowHeader = map fst persons
+  }
   where
     moodMatches :: [NaturalWord]
     moodMatches = filter ((== m) . mood) nws
@@ -84,21 +101,12 @@ printMood nws m = do
     tenseValues :: [Maybe NaturalWord]
     tenseValues = map (filterTense moodMatches) tenses
  
-    grid = Table 
-      { cells = map ((flip map tenseValues) . applyProp . snd) persons,
-        columnHeader = tenses,
-        rowHeader = map fst persons
-      }
-
-    array :: [[String]]
-    array = toArray $ filterBlankRows $ filterBlankColumns grid 
- 
 main :: IO ()
 main = do
   verb : _ <- getArgs
   conn <- open "conjugation.db"
 
   rows <- query conn "SELECT * from verbs where infinitive=?" (Only (verb :: String)) :: IO [NaturalWord]
-  mapM_ (printMood rows) moods
+  mapM_ (printMoods rows) [["Indicativo"], ["Subjuntivo"], ["Imperativo Afirmativo", "Imperativo Negativo"]]
 
   close conn
