@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Data.List (transpose, isPrefixOf, inits, maximumBy)
-import Data.Ord (comparing)
+import Data.List (transpose)
 import Database.SQLite.Simple
 import System.Environment (getArgs)
 import Data.Maybe (listToMaybe, fromMaybe, isJust)
@@ -30,15 +29,12 @@ data NaturalWord = NaturalWord
 
 instance FromRow NaturalWord where
   fromRow = NaturalWord <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
-
-moods :: [Mood]
-moods = ["Indicativo", "Subjuntivo", "Imperativo Afirmativo", "Imperativo Negativo"]
-
+ 
 persons :: [(String, Prop)]
 persons = [("Yo", fps), ("Tú", sps), ("él/ella/Ud.", tps), ("nosotros", fpp), ("vosotros", spp), ("ellos/ellas/Uds.", tpp)]
 
-tenses :: [Tense]
-tenses = ["Presente", "Pretérito", "Imperfecto", "Imperfecto", "Futuro"]
+basicTenses :: [Tense]
+basicTenses = ["Presente", "Pretérito", "Imperfecto", "Imperfecto", "Futuro"]
 
 data Table = Table 
   {
@@ -46,11 +42,22 @@ data Table = Table
     rowHeader :: [String],
     columnHeader :: [String]
   }
-  deriving (Show)
+  deriving (Show, Eq)
+
+instance Semigroup Table where
+  t1 <> t2 = Table 
+    {
+      cells = getZipList $ (<>) <$> ZipList (cells t1) <*> ZipList (cells t2),
+      rowHeader = rowHeader t1 <> rowHeader t2,
+      columnHeader = columnHeader t1 <> columnHeader t2
+    }
+
+instance Monoid Table where
+  mempty = Table { cells = repeat [], rowHeader = [], columnHeader = [] }
  
 filterBlankRows :: Table -> Table
 filterBlankRows g = g { cells = map snd filtered, rowHeader = map fst filtered }
-  where filtered = filterAllBlank $ zip (rowHeader g) (cells g)
+  where filtered = filter ((any isJust) . snd) $ zip (rowHeader g) (cells g)
 
 transposeTable :: Table -> Table
 transposeTable g = Table (transpose (cells g)) (columnHeader g) (rowHeader g)
@@ -70,28 +77,37 @@ filterTense nws t = listToMaybe $ filter ((== t) . tense) nws
 applyProp :: (a -> String) -> Maybe a -> Maybe String
 applyProp f m = if x == "" then Nothing else Just x 
   where x = fromMaybe "" (f <$> m)
+   
+data DisplayMood = DisplayMood 
+  {
+    title :: String,
+    moods :: [Mood],
+    tenses :: [Tense],
+    customHeaders :: Maybe [String]
+  }
  
-filterAllBlank :: [(String, [Maybe String])] -> [(String, [Maybe String])]
-filterAllBlank = filter ((any isJust) . snd) 
-
-lcp :: String -> String -> String
-lcp a b = maximumBy (comparing length) $ filter (`isPrefixOf` a) (inits b)
- 
-printMoods :: [NaturalWord] -> [Mood] -> IO ()
-printMoods nws ms = do
-  -- putStrLn $ "\n" ++ m ++ "\n"
-  putStrLn $ gridString (take 6 (repeat (column (fixedUntil 12) left def def))) array
+displayMood :: [NaturalWord] -> DisplayMood -> IO ()
+displayMood nws dm = do
+  putStrLn $ "\n" ++ (title dm) ++ "\n"
+  putStrLn $ gridString (take 6 (repeat columnDef)) array
   where 
+    columnDef = column (fixedUntil 12) left def def
+
     combined :: Table
-    combined = foldl1 (<>) (map (printMood nws) ms)
+    combined =  mconcat (map (generateTable nws (tenses dm)) (moods dm))
 
+    filtered :: Table
+    filtered = filterBlankColumns $ filterBlankRows combined
+ 
     array :: [[String]]
-    array = toArray $ filterBlankRows $ filterBlankColumns combined 
+    array = toArray $ case customHeaders dm of
+      Nothing -> filtered
+      Just headers -> filtered{columnHeader = headers}
 
-printMood :: [NaturalWord] -> Mood -> Table
-printMood nws m = Table 
+generateTable :: [NaturalWord] -> [Tense] -> Mood -> Table
+generateTable nws tenses' m = Table 
   { cells = map ((flip map tenseValues) . applyProp . snd) persons,
-    columnHeader = tenses,
+    columnHeader = tenses',
     rowHeader = map fst persons
   }
   where
@@ -99,7 +115,7 @@ printMood nws m = Table
     moodMatches = filter ((== m) . mood) nws
 
     tenseValues :: [Maybe NaturalWord]
-    tenseValues = map (filterTense moodMatches) tenses
+    tenseValues = map (filterTense moodMatches) tenses'
  
 main :: IO ()
 main = do
@@ -107,6 +123,29 @@ main = do
   conn <- open "conjugation.db"
 
   rows <- query conn "SELECT * from verbs where infinitive=?" (Only (verb :: String)) :: IO [NaturalWord]
-  mapM_ (printMoods rows) [["Indicativo"], ["Subjuntivo"], ["Imperativo Afirmativo", "Imperativo Negativo"]]
+  mapM_ (displayMood rows)
+    [
+      DisplayMood
+        { 
+        title = "Indicativo",
+        moods = ["Indicativo"], 
+        tenses = basicTenses,
+        customHeaders = Nothing
+        }, 
+      DisplayMood
+        { 
+        title = "Subjuntivo",
+        moods = ["Subjuntivo"], 
+        tenses = basicTenses,
+        customHeaders = Nothing
+        }, 
+      DisplayMood
+        {
+        title = "Imperativo",
+        moods = ["Imperativo Afirmativo",  "Imperativo Negativo"], 
+        tenses = basicTenses,
+        customHeaders = Just ["Afirmativo", "Negativo"]
+        } 
+    ]
 
-  close conn
+  close conn  
