@@ -5,15 +5,18 @@ import Database.SQLite.Simple
 import System.Environment (getArgs)
 import Data.Maybe (listToMaybe, fromMaybe, isJust)
 import Control.Applicative
-import Text.Layout.Table (gridString, left, fixedUntil, column, def)
+import Text.Layout.Table (left, fixedUntil, column, def, tableString, unicodeS, columnHeaderTableS, rowG, titlesH)
+import System.Console.ANSI
+import Text.Layout.Table.Cell.Formatted
+import System.IO (stdout)
 
 type Mood = String
 
 type Tense = String
 
-type Prop = NaturalWord -> String
+type Prop = Verb -> String
 
-data NaturalWord = NaturalWord
+data Verb = Verb
   { infinitive :: String,
     mood :: Mood,
     tense :: Tense,
@@ -27,15 +30,9 @@ data NaturalWord = NaturalWord
   }
   deriving (Show)
 
-instance FromRow NaturalWord where
-  fromRow = NaturalWord <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
+instance FromRow Verb where
+  fromRow = Verb <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
  
-persons :: [(String, Prop)]
-persons = [("Yo", fps), ("Tú", sps), ("él/ella/Ud.", tps), ("nosotros", fpp), ("vosotros", spp), ("ellos/ellas/Uds.", tpp)]
-
-basicTenses :: [Tense]
-basicTenses = ["Presente", "Pretérito", "Imperfecto", "Imperfecto", "Futuro"]
-
 data Table = Table 
   {
     cells :: [[Maybe String]],
@@ -71,7 +68,13 @@ toArray g = getZipList $
   <$> ZipList ("":(rowHeader g)) 
   <*> ZipList ((columnHeader g):(map (map (fromMaybe "")) (cells g)))
  
-filterTense :: [NaturalWord] -> Tense -> Maybe NaturalWord
+persons :: [(String, Prop)]
+persons = [("Yo", fps), ("Tú", sps), ("él/ella/Ud.", tps), ("nosotros", fpp), ("vosotros", spp), ("ellos/ellas/Uds.", tpp)]
+
+basicTenses :: [Tense]
+basicTenses = ["Presente", "Pretérito", "Imperfecto", "Imperfecto", "Futuro"]
+
+filterTense :: [Verb] -> Tense -> Maybe Verb
 filterTense nws t = listToMaybe $ filter ((== t) . tense) nws
  
 applyProp :: (a -> String) -> Maybe a -> Maybe String
@@ -85,13 +88,22 @@ data DisplayMood = DisplayMood
     tenses :: [Tense],
     customHeaders :: Maybe [String]
   }
+
+paint :: Color -> String -> Formatted String
+paint color s = formatted (setSGRCode [SetColor Foreground Dull color]) (plain s) (setSGRCode [Reset])
  
-displayMood :: [NaturalWord] -> DisplayMood -> IO ()
+displayMood :: [Verb] -> DisplayMood -> IO ()
 displayMood nws dm = do
+  setSGR [SetColor Foreground Vivid Magenta, SetConsoleIntensity BoldIntensity]
   putStrLn $ "\n" ++ (title dm) ++ "\n"
-  putStrLn $ gridString (take 6 (repeat columnDef)) array
+  setSGR [Reset]
+
+  stdoutSupportsANSI <- hNowSupportsANSI stdout
+  if stdoutSupportsANSI
+    then putStrLn $ tableString t
+    else putStrLn "Standard output does not support 'ANSI' escape codes."
   where 
-    columnDef = column (fixedUntil 12) left def def
+    columnDef = column (fixedUntil 10) left def def
 
     combined :: Table
     combined =  mconcat (map (generateTable nws (tenses dm)) (moods dm))
@@ -104,25 +116,31 @@ displayMood nws dm = do
       Nothing -> filtered
       Just headers -> filtered{columnHeader = headers}
 
-generateTable :: [NaturalWord] -> [Tense] -> Mood -> Table
+    cs = repeat columnDef
+    h = (titlesH (map (paint Yellow) (head array)))
+    paintFns = (paint Yellow):repeat plain
+    rgs = map (rowG . (zipWith (\f d -> f d) paintFns)) (tail array)
+    t = columnHeaderTableS cs unicodeS h rgs
+
+generateTable :: [Verb] -> [Tense] -> Mood -> Table
 generateTable nws tenses' m = Table 
   { cells = map ((flip map tenseValues) . applyProp . snd) persons,
     columnHeader = tenses',
     rowHeader = map fst persons
   }
   where
-    moodMatches :: [NaturalWord]
+    moodMatches :: [Verb]
     moodMatches = filter ((== m) . mood) nws
 
-    tenseValues :: [Maybe NaturalWord]
+    tenseValues :: [Maybe Verb]
     tenseValues = map (filterTense moodMatches) tenses'
  
 main :: IO ()
 main = do
   verb : _ <- getArgs
-  conn <- open "conjugation.db"
-
-  rows <- query conn "SELECT * from verbs where infinitive=?" (Only (verb :: String)) :: IO [NaturalWord]
+  conn <- open "conjugation.db" 
+  rows <- query conn "SELECT * from verbs where infinitive=?" (Only (verb :: String)) :: IO [Verb]
+  close conn  
   mapM_ (displayMood rows)
     [
       DisplayMood
@@ -146,6 +164,4 @@ main = do
         tenses = basicTenses,
         customHeaders = Just ["Afirmativo", "Negativo"]
         } 
-    ]
-
-  close conn  
+    ]  
