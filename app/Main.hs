@@ -9,6 +9,7 @@ import Text.Layout.Table (left, expandUntil, column, def, tableString, unicodeS,
 import System.Console.ANSI
 import Text.Layout.Table.Cell.Formatted
 import System.IO (stdout)
+import Paths_conjugate (getDataFileName)
 
 type Mood = String
 
@@ -129,8 +130,8 @@ generateTable nws tenses' m = Table
  
 main :: IO ()
 main = do
-  verb : _ <- getArgs
-  conn <- open "conjugation.db" 
+  verb:_ <- getArgs
+  conn <- open =<< getDataFileName "conjugation.db"
   rows <- query conn "SELECT * from verbs where infinitive=?" (Only (verb :: String)) :: IO [Verb]
   close conn  
   mapM_ (displayMood rows)
