@@ -5,7 +5,7 @@ import Database.SQLite.Simple
 import System.Environment (getArgs)
 import Data.Maybe (listToMaybe, fromMaybe, isJust)
 import Control.Applicative
-import Text.Layout.Table (left, expandUntil, column, def, tableString, unicodeS, columnHeaderTableS, titlesH, justifyText, center, colsAllG)
+import Text.Layout.Table (left, expandUntil, column, def, tableString, unicodeS, fullTableS, titlesH, justifyText, center, colsAllG)
 import System.Console.ANSI
 import Text.Layout.Table.Cell.Formatted
 import System.IO (stdout)
@@ -61,12 +61,6 @@ transposeTable g = Table (transpose (cells g)) (columnHeader g) (rowHeader g)
 
 filterBlankColumns :: Table -> Table
 filterBlankColumns = transposeTable . filterBlankRows . transposeTable
-
-toArray :: Table -> [[String]]
-toArray g = getZipList $ 
-  (:)
-  <$> ZipList ("":(rowHeader g)) 
-  <*> ZipList ((columnHeader g):(map (map (fromMaybe "")) (cells g)))
  
 persons :: [(String, Prop)]
 persons = [("Yo", fps), ("Tú", sps), ("él/ella/Ud.", tps), ("nosotros", fpp), ("vosotros", spp), ("ellos/ellas/Uds.", tpp)]
@@ -91,10 +85,6 @@ data DisplayMood = DisplayMood
 
 paint :: Color -> a -> Formatted a
 paint color s = formatted (setSGRCode [SetColor Foreground Dull color]) (plain s) (setSGRCode [Reset])
-
-paintRowHeader :: [[String]] -> [[Formatted String]]
-paintRowHeader = (zipWith (\f d -> map f d) paintFns)
-  where paintFns = (paint Yellow):repeat plain
  
 displayMood :: [Verb] -> DisplayMood -> IO ()
 displayMood nws dm = do
@@ -107,23 +97,22 @@ displayMood nws dm = do
     then putStrLn $ tableString t
     else putStrLn "Standard output does not support 'ANSI' escape codes."
   where 
-    columnDef = column (expandUntil 20) left def def
-
     combined :: Table
     combined =  mconcat (map (generateTable nws (tenses dm)) (moods dm))
 
     filtered :: Table
     filtered = filterBlankColumns $ filterBlankRows combined
  
-    array :: [[String]]
-    array = toArray $ case customHeaders dm of
+    array :: Table
+    array = case customHeaders dm of
       Nothing -> filtered
       Just headers -> filtered{columnHeader = headers}
 
-    cs = repeat columnDef
-    h = (titlesH (map (paint Yellow) (head array)))
-    rgs = map ((colsAllG center) . paintRowHeader . (map (justifyText 10))) (tail array)
-    t = columnHeaderTableS cs unicodeS h rgs
+    cs = repeat (column (expandUntil 20) left def def)
+    ch = (titlesH (map (paint Yellow) (columnHeader array)))
+    rh = (titlesH (map (paint Yellow) (rowHeader array)))
+    rgs = map ((colsAllG center) . (map ((justifyText 10) . (fromMaybe "")))) (cells array)
+    t = fullTableS cs unicodeS rh ch rgs
 
 generateTable :: [Verb] -> [Tense] -> Mood -> Table
 generateTable nws tenses' m = Table 
