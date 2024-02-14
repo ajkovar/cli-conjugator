@@ -5,7 +5,7 @@ import Database.SQLite.Simple
 import System.Environment (getArgs)
 import Data.Maybe (listToMaybe, fromMaybe, isJust)
 import Control.Applicative
-import Text.Layout.Table (left, fixedUntil, column, def, tableString, unicodeS, columnHeaderTableS, rowG, titlesH)
+import Text.Layout.Table (left, expandUntil, column, def, tableString, unicodeS, columnHeaderTableS, titlesH, justifyText, center, colsAllG)
 import System.Console.ANSI
 import Text.Layout.Table.Cell.Formatted
 import System.IO (stdout)
@@ -72,7 +72,7 @@ persons :: [(String, Prop)]
 persons = [("Yo", fps), ("Tú", sps), ("él/ella/Ud.", tps), ("nosotros", fpp), ("vosotros", spp), ("ellos/ellas/Uds.", tpp)]
 
 basicTenses :: [Tense]
-basicTenses = ["Presente", "Pretérito", "Imperfecto", "Imperfecto", "Futuro"]
+basicTenses = ["Presente", "Pretérito", "Imperfecto", "Futuro"]
 
 filterTense :: [Verb] -> Tense -> Maybe Verb
 filterTense nws t = listToMaybe $ filter ((== t) . tense) nws
@@ -89,8 +89,12 @@ data DisplayMood = DisplayMood
     customHeaders :: Maybe [String]
   }
 
-paint :: Color -> String -> Formatted String
+paint :: Color -> a -> Formatted a
 paint color s = formatted (setSGRCode [SetColor Foreground Dull color]) (plain s) (setSGRCode [Reset])
+
+paintRowHeader :: [[String]] -> [[Formatted String]]
+paintRowHeader = (zipWith (\f d -> map f d) paintFns)
+  where paintFns = (paint Yellow):repeat plain
  
 displayMood :: [Verb] -> DisplayMood -> IO ()
 displayMood nws dm = do
@@ -103,7 +107,7 @@ displayMood nws dm = do
     then putStrLn $ tableString t
     else putStrLn "Standard output does not support 'ANSI' escape codes."
   where 
-    columnDef = column (fixedUntil 10) left def def
+    columnDef = column (expandUntil 20) left def def
 
     combined :: Table
     combined =  mconcat (map (generateTable nws (tenses dm)) (moods dm))
@@ -118,8 +122,7 @@ displayMood nws dm = do
 
     cs = repeat columnDef
     h = (titlesH (map (paint Yellow) (head array)))
-    paintFns = (paint Yellow):repeat plain
-    rgs = map (rowG . (zipWith (\f d -> f d) paintFns)) (tail array)
+    rgs = map ((colsAllG center) . paintRowHeader . (map (justifyText 10))) (tail array)
     t = columnHeaderTableS cs unicodeS h rgs
 
 generateTable :: [Verb] -> [Tense] -> Mood -> Table
@@ -163,5 +166,19 @@ main = do
         moods = ["Imperativo Afirmativo",  "Imperativo Negativo"], 
         tenses = basicTenses,
         customHeaders = Just ["Afirmativo", "Negativo"]
-        } 
+        },
+      DisplayMood
+        {
+        title = "Perfecto",
+        moods = ["Indicativo"], 
+        tenses = ["Presente perfecto", "Pretérito anterior", "Pluscuamperfecto", "Condicional perfecto", "Futuro perfecto"],
+        customHeaders = Just ["Present", "Preterite", "Past", "Conditional", "Future"] 
+        }, 
+      DisplayMood
+        {
+        title = "Perfecto Subjunctivo",
+        moods = ["Subjuntivo"], 
+        tenses = ["Presente perfecto", "Pluscuamperfecto", "Futuro perfecto"],
+        customHeaders = Just ["Present", "Past", "Future"]  
+        }
     ]  
