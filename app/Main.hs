@@ -134,41 +134,43 @@ main = do
   conn <- open =<< getDataFileName "conjugation.db"
   rows <- query conn "SELECT * from verbs where infinitive=?" (Only (verb :: String)) :: IO [Verb]
   close conn  
-  mapM_ (displayMood rows)
-    [
-      DisplayMood
-        { 
-        title = "Indicativo",
-        moods = ["Indicativo"], 
-        tenses = basicTenses,
-        customHeaders = Nothing
-        }, 
-      DisplayMood
-        { 
-        title = "Subjuntivo",
-        moods = ["Subjuntivo"], 
-        tenses = basicTenses,
-        customHeaders = Nothing
-        }, 
-      DisplayMood
-        {
-        title = "Imperativo",
-        moods = ["Imperativo Afirmativo",  "Imperativo Negativo"], 
-        tenses = basicTenses,
-        customHeaders = Just ["Afirmativo", "Negativo"]
-        },
-      DisplayMood
-        {
-        title = "Perfecto",
-        moods = ["Indicativo"], 
-        tenses = ["Presente perfecto", "Pretérito anterior", "Pluscuamperfecto", "Condicional perfecto", "Futuro perfecto"],
-        customHeaders = Just basicTenses 
-        }, 
-      DisplayMood
-        {
-        title = "Perfecto Subjunctivo",
-        moods = ["Subjuntivo"], 
-        tenses = ["Presente perfecto", "Pluscuamperfecto", "Futuro perfecto"],
-        customHeaders = Just ["Presente", "Imperfecto", "Futuro"]  
-        }
-    ]  
+  if length rows == 0
+    then putStrLn "No matching verbs found."
+    else mapM_ (displayMood rows)
+      [
+        DisplayMood
+          { 
+          title = "Indicativo",
+          moods = ["Indicativo"], 
+          tenses = basicTenses,
+          customHeaders = Nothing
+          }, 
+        DisplayMood
+          { 
+          title = "Subjuntivo",
+          moods = ["Subjuntivo"], 
+          tenses = basicTenses,
+          customHeaders = Nothing
+          }, 
+        DisplayMood
+          {
+          title = "Imperativo",
+          moods = ["Imperativo Afirmativo",  "Imperativo Negativo"], 
+          tenses = basicTenses,
+          customHeaders = Just ["Afirmativo", "Negativo"]
+          },
+        DisplayMood
+          {
+          title = "Perfecto",
+          moods = ["Indicativo"], 
+          tenses = ["Presente perfecto", "Pretérito anterior", "Pluscuamperfecto", "Condicional perfecto", "Futuro perfecto"],
+          customHeaders = Just basicTenses 
+          }, 
+        DisplayMood
+          {
+          title = "Perfecto Subjunctivo",
+          moods = ["Subjuntivo"], 
+          tenses = ["Presente perfecto", "Pluscuamperfecto", "Futuro perfecto"],
+          customHeaders = Just ["Presente", "Imperfecto", "Futuro"]  
+          }
+      ]  
