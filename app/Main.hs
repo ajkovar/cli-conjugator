@@ -66,7 +66,7 @@ persons :: [(String, Prop)]
 persons = [("Yo", fps), ("Tú", sps), ("él/ella/Ud.", tps), ("nosotros", fpp), ("vosotros", spp), ("ellos/ellas/Uds.", tpp)]
 
 basicTenses :: [Tense]
-basicTenses = ["Presente", "Pretérito", "Imperfecto", "Futuro"]
+basicTenses = ["Presente", "Pretérito", "Imperfecto", "Condicional", "Futuro"]
 
 filterTense :: [Verb] -> Tense -> Maybe Verb
 filterTense nws t = listToMaybe $ filter ((== t) . tense) nws
@@ -103,15 +103,15 @@ displayMood nws dm = do
     filtered :: Table
     filtered = filterBlankColumns $ filterBlankRows combined
  
-    array :: Table
-    array = case customHeaders dm of
+    table :: Table
+    table = case customHeaders dm of
       Nothing -> filtered
       Just headers -> filtered{columnHeader = headers}
 
     cs = repeat (column (expandUntil 20) left def def)
-    ch = (titlesH (map (paint Yellow) (columnHeader array)))
-    rh = (titlesH (map (paint Yellow) (rowHeader array)))
-    rgs = map ((colsAllG center) . (map ((justifyText 10) . (fromMaybe "")))) (cells array)
+    ch = (titlesH (map (paint Yellow) (columnHeader table)))
+    rh = (titlesH (map (paint Yellow) (rowHeader table)))
+    rgs = map ((colsAllG center) . (map ((justifyText 10) . (fromMaybe "")))) (cells table)
     t = fullTableS cs unicodeS rh ch rgs
 
 generateTable :: [Verb] -> [Tense] -> Mood -> Table
@@ -161,13 +161,13 @@ main = do
         title = "Perfecto",
         moods = ["Indicativo"], 
         tenses = ["Presente perfecto", "Pretérito anterior", "Pluscuamperfecto", "Condicional perfecto", "Futuro perfecto"],
-        customHeaders = Just ["Present", "Preterite", "Past", "Conditional", "Future"] 
+        customHeaders = Just basicTenses 
         }, 
       DisplayMood
         {
         title = "Perfecto Subjunctivo",
         moods = ["Subjuntivo"], 
         tenses = ["Presente perfecto", "Pluscuamperfecto", "Futuro perfecto"],
-        customHeaders = Just ["Present", "Past", "Future"]  
+        customHeaders = Just ["Presente", "Imperfecto", "Futuro"]  
         }
     ]  
