@@ -88,14 +88,14 @@ paint :: Color -> a -> Formatted a
 paint color s = formatted (setSGRCode [SetColor Foreground Dull color]) (plain s) (setSGRCode [Reset])
  
 displayMood :: [Verb] -> DisplayMood -> IO ()
-displayMood nws dm = do
-  setSGR [SetColor Foreground Vivid Magenta, SetConsoleIntensity BoldIntensity]
-  putStrLn $ "\n" ++ (title dm) ++ "\n"
-  setSGR [Reset]
-
+displayMood nws dm = do 
   stdoutSupportsANSI <- hNowSupportsANSI stdout
   if stdoutSupportsANSI
-    then putStrLn $ tableString t
+    then do
+      setSGR [SetColor Foreground Vivid Magenta, SetConsoleIntensity BoldIntensity]
+      putStrLn $ "\n" ++ (title dm) ++ "\n"
+      setSGR [Reset]
+      putStrLn $ tableString t
     else putStrLn "Standard output does not support 'ANSI' escape codes."
   where 
     combined :: Table
