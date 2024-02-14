@@ -109,8 +109,8 @@ displayMood nws dm = do
       Just headers -> filtered{columnHeader = headers}
 
     cs = repeat (column (expandUntil 20) left def def)
-    ch = (titlesH (map (paint Yellow) (columnHeader table)))
-    rh = (titlesH (map (paint Yellow) (rowHeader table)))
+    ch = titlesH $ map (paint Yellow) (columnHeader table)
+    rh = titlesH $ map (paint Yellow) (rowHeader table)
     rgs = map ((colsAllG center) . (map ((justifyText 10) . (fromMaybe "")))) (cells table)
     t = fullTableS cs unicodeS rh ch rgs
 
